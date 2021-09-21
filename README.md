@@ -1,5 +1,5 @@
 # gvp
-This is a wrapped for the new internal api of Gymnázium na Vítězné pláni introduced around the start of 2021. It supports getting articles, contacts and more.
+This is a wrapper for the new internal api of Gymnázium na Vítězné pláni introduced around the start of 2021. It supports getting articles, contacts and more.
 
 # installation
 ```
@@ -7,7 +7,7 @@ pip install gvp
 ```
 
 # usage
-It is recommended to just import the `gvp` modules directly instead of importing functions from it.
+It is recommended to just import the `gvp` module directly.
 
 Everything has docstrings and is annotated, you can just look at the source code to understand it best.
 

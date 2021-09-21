@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="gvp",
-    version="1.0.0",
+    version="1.0.1",
     author="thesadru",
     packages=["gvp"],
     description="An api wrapper for Gymnázium na Vítězné pláni",

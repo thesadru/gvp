@@ -27,6 +27,25 @@ class User:
         """Check if the user is anonymous"""
         return self.username == ""
 
+    @property
+    def mail(self) -> str:
+        """The user's school email
+        
+        Returns an empty string for anonymous users.
+        """
+        if self.anonymous:
+            return ""
+        
+        return f"{self.username}@gvp.cz"
+    
+    @property
+    def www(self) -> str:
+        """Link to the user's school webpage
+        
+        May not always work for users who shorten theit name such as Erlebach.
+        """
+        return f"https://gvp.cz/www/{self.username}/"
+
     def articles(self, page: int = 1) -> List[Article]:
         """Return articles written by this user"""
         return gvp.articles(page, self.username)
@@ -82,14 +101,14 @@ class Article:
         return None
 
 
-class Contact:
+class Contact(User):
     """A contact for a school employee"""
 
     def __init__(self, data) -> None:
         self.description: Optional[str] = data["description"]
         self.name: str = data["name"]
         self.phone: str = data["phone"]
-        self._mail: str = data["mail"]
+        self.username: str = data["mail"]
         self.degree: str = data["degree"].strip()
         self.degree2: str = data["degree2"].strip()
         self.type = int(data["type"])
@@ -113,12 +132,7 @@ class Contact:
         match = re.search(r"[123456]\.[ABCDEF]", self.description or "")
         if match is None:
             return None
-        return match.string
-
-    @property
-    def mail(self) -> str:
-        """The full mail"""
-        return self._mail + "@gvp.cz"
+        return match.group(0)
 
 
 class StaticFile:
@@ -153,7 +167,8 @@ class SearchResult:
         if self.category == "static":
             return StaticFile({"id": self._link, "title": self.title, "content": self.content})
         elif self.category == "articles":
-            return gvp.article(self._link.split("-")[-1])
+            article_id = int(self._link.split("-")[-1])
+            return gvp.article(article_id)
         elif self.category == "comments":
             article_id, comment_id = map(int, self._link.split("-")[-1].split("#"))
             return gvp.article(article_id).get_comment(comment_id)

@@ -30,7 +30,8 @@ def articles(page: int = 1, author: str = None) -> List[Article]:
 
     If an author username is provided then get all articles by that author
     """
-    params = dict(page=page)
+    params = {}
+    params["page"] = page
     if author:
         params["author"] = author
         params["action"] = "by_author"
