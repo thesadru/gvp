@@ -2,11 +2,25 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 import gvp
+from gvp.utils import get_selected, parse_human_date, parse_preliminary_month
 
-__all__ = ["User", "Comment", "Article", "Contact", "StaticFile", "SearchResult", "News"]
+if TYPE_CHECKING:
+    import bs4
+
+__all__ = [
+    "User",
+    "Comment",
+    "Article",
+    "Contact",
+    "StaticFile",
+    "SearchResult",
+    "News",
+    "Event",
+    "EventDetails",
+]
 
 
 class User:
@@ -30,18 +44,18 @@ class User:
     @property
     def mail(self) -> str:
         """The user's school email
-        
+
         Returns an empty string for anonymous users.
         """
         if self.anonymous:
             return ""
-        
+
         return f"{self.username}@gvp.cz"
-    
+
     @property
     def www(self) -> str:
         """Link to the user's school webpage
-        
+
         May not always work for users who shorten theit name such as Erlebach.
         """
         return f"https://gvp.cz/www/{self.username}/"
@@ -157,7 +171,7 @@ class SearchResult:
         self.category: str = data.get("category", category)
 
     def __repr__(self) -> str:
-        return f"<{type(self).__name__} category={self.category!r} title={self.title!r}>"
+        return f"<{type(self).__name__} category={self.category!r} title={self.title!r} link={self._link!r}>"
 
     def complete(self) -> Any:
         """Complete the search result into a full class
@@ -165,7 +179,9 @@ class SearchResult:
         May return a StaticFile, an Article or a Comment
         """
         if self.category == "static":
-            return StaticFile({"id": self._link, "title": self.title, "content": self.content})
+            return StaticFile(
+                {"id": self._link, "title": self.title, "content": self.content}
+            )
         elif self.category == "articles":
             article_id = int(self._link.split("-")[-1])
             return gvp.article(article_id)
@@ -188,3 +204,124 @@ class News:
 
     def __repr__(self) -> str:
         return f"<{type(self).__name__} id={self.id} author={self.author.username!r} title={self.title!r}>"
+
+
+class Event:
+    """An event happening at the school"""
+
+    id: int
+    name: str
+    organizator: str
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
+    all_classes: bool
+    classes: List[str]
+    has_chosen_students: bool
+    teachers: List[str]
+    total_teachers: int
+    approved: bool
+
+    def __init__(self, data: bs4.BeautifulSoup) -> None:
+        entries = data.find_all("td")
+
+        self.approved = "schvaleno" in data["class"]
+        self.id = int(entries[0].a["href"].split("=")[1])
+        self.name = entries[0].text.strip()
+        self.organizator = entries[1].text.strip()
+        self.start_time = parse_human_date(entries[2].text)
+        self.end_time = parse_human_date(entries[3].text)
+
+        classes = entries[4].text
+        self.all_classes = False
+        self.has_chosen_students = False
+        self.classes = []
+        if "výběr studentů" in classes:
+            self.has_chosen_students = True
+        elif "všechny třídy" in classes:
+            self.all_classes = True
+        elif "třídy:" in classes:
+            self.classes = classes.split(":")[1].strip().split(", ")
+
+        teachers = entries[5].text.split(":")[1].strip()
+        self.teachers = teachers.split(", ") if teachers else []
+        self.total_teachers = int(entries[5].text.split(")")[0].split("(")[1])
+
+    def __repr__(self) -> str:
+        return f"<{type(self).__name__} id={self.id!r} name={self.name!r} organizator={self.organizator!r}>"
+
+    def details(self) -> EventDetails:
+        """Gets the details of this event"""
+        return gvp.event(self.id)
+
+
+class EventDetails:
+    """Details of an event happening at the school"""
+
+    id: int
+    name: str
+    description: str
+    organizator: str
+    location: str
+
+    preliminary_month: datetime
+    duration_type: int
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
+    start_location: Optional[str]
+    end_location: Optional[str]
+
+    all_classes: bool
+    classes: List[str]
+    students: List[str]
+    teachers: List[str]
+    total_teachers: int
+
+    price: int
+    approved: bool
+    notes: str
+
+    def __init__(self, data: bs4.BeautifulSoup, id: int = 0) -> None:
+        rows = data.find_all("tr")
+
+        self.id = id
+
+        self.name = rows[0].input["value"]
+        self.description = rows[1].textarea.text.strip()
+        self.organizator = rows[2].input["value"]
+        self.location = rows[3].input["value"]
+
+        month = get_selected(rows[4].find_all("option"), "selected")["value"]
+        self.preliminary_month = parse_preliminary_month(int(month))
+        duration = get_selected(rows[5].find_all("input"), "checked")["value"]
+        self.duration_type = int(duration)
+
+        if rows[6].input["value"]:
+            start = rows[6].input["value"] + "T" + rows[7].input["value"]
+            end_date = rows[9].input["value"] or rows[6].input["value"]
+            end = end_date + "T" + rows[10].input["value"]
+
+            self.start_time = datetime.fromisoformat(start)
+            self.end_time = datetime.fromisoformat(end)
+            self.start_location = rows[8].input["value"]
+            self.end_location = rows[11].input["value"]
+        else:
+            self.start_time = None
+            self.end_time = None
+            self.start_location = None
+            self.end_location = None
+
+        st = rows[12].find_all(["input", "textarea"])
+        self.all_classes = st[0].has_attr("checked")
+        self.classes = st[2].get("value").split(", ") if st[2].get("value") else []
+        self.students = st[4].text.split(", ") if st[4].text.strip() else []
+
+        self.teachers = rows[13].textarea.text.split(", ")
+        self.total_teachers = int(rows[13].input["value"])
+
+        self.price = int(rows[14].input["value"])
+        status = get_selected(rows[15].find_all("input"), "checked")
+        self.approved = status["value"] == "1"
+        self.notes = rows[16].textarea.text.strip()
+
+    def __repr__(self) -> str:
+        return f"<{type(self).__name__} id={self.id!r} name={self.name!r} organizator={self.organizator!r} start_time={repr(str(self.start_time))}>"

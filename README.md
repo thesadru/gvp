@@ -62,3 +62,21 @@ print(results)
 print(results[0].complete())
 # <Article id=1610 author='Petr Urbančík' title='Fotografie a video z akademie (aktualizováno)'>
 ```
+
+Get events (located on the intranet)
+```py
+events = gvp.events()
+print(events)
+# [<Event id=3 name='Poznávací exkurze Řecko' organizator='Reindl - Friedl'>,
+#  <Event id=12 name='Seznamovací kurz šestileté' organizator='Milan Kvíz'>,
+#  <Event id=15 name='Seznamovací kurz čtyřleté' organizator='Martin Šmíd'>,
+#  <Event id=17 name='Odpolední setkání na zahradě' organizator='Pavla Imramovská'>,
+# ...]
+
+details = events[0].details()
+print(details)
+# <EventDetails id=3 name='Poznávací exkurze Řecko' organizator='Reindl - Friedl' start_time='2021-08-31 08:00:00'>
+
+details = gvp.event(24)
+# <EventDetails id=24 name='SVĚTLUŠKA' organizator='Pavla Imramovská' start_time='2021-09-07 08:00:00'>
+```

@@ -5,7 +5,17 @@ import requests
 
 from gvp.models import *
 
-__all__ = ["article", "articles", "contacts", "static_file", "static_files", "search", "news"]
+__all__ = [
+    "article",
+    "articles",
+    "contacts",
+    "static_file",
+    "static_files",
+    "search",
+    "news",
+    "events",
+    "event",
+]
 
 
 def request(endpoint: str, method: str = "GET", **kwargs):
@@ -31,10 +41,12 @@ def articles(page: int = 1, author: str = None) -> List[Article]:
     If an author username is provided then get all articles by that author
     """
     params = {}
-    params["page"] = page
+
     if author:
         params["author"] = author
         params["action"] = "by_author"
+
+    params["page"] = page
 
     data = request("articles", params=params)
     return [Article(i) for i in data["articles"]]
@@ -75,3 +87,26 @@ def news() -> List[News]:
     """A list of all lagacy news"""
     data = request("news")
     return [News(i) for i in data]
+
+
+def events() -> List[Event]:
+    """A list of all current events"""
+    import bs4
+
+    form = dict(
+        mesic1=1,
+        mesic2=12,
+    )
+    r = requests.post("https://www.gvp.cz/prehled_akci/index.php", data=form)
+    soup = bs4.BeautifulSoup(r.content, "html.parser")
+    events = soup.find_all("tr", {"class": ["schvaleno", "navrh"]})
+    return [Event(i) for i in events if i.find("td").text]
+
+
+def event(id: int) -> EventDetails:
+    """Details of a specific event"""
+    import bs4
+
+    r = requests.get("https://www.gvp.cz/prehled_akci/edit.php", params=dict(id=id))
+    soup = bs4.BeautifulSoup(r.content, "html.parser")
+    return EventDetails(soup, id=id)
